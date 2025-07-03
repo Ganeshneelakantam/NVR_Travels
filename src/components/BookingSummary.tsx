@@ -26,12 +26,11 @@ const RATES = {
 
 const formatPhoneNumber = (phone: string): string => {
   const cleaned = phone.replace(/[^0-9]/g, '');
+  // Validate Indian phone number: 10 digits, starting with 6-9
   if (cleaned.length === 10 && /^[6-9]/.test(cleaned)) {
     return `+91${cleaned}`;
-  } else if (!cleaned.startsWith('+')) {
-    return `+${cleaned}`;
   }
-  return cleaned;
+  return '';
 };
 
 const truncate = (str: string, maxLength: number): string => {
@@ -47,6 +46,8 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const OWNER_PHONE_NUMBER = '+919381283038';
+
   const handleBookRide = () => {
     setShowModal(true);
     setError(null);
@@ -54,25 +55,47 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
 
   const sendSMS = async (to: string, body: string): Promise<boolean> => {
     try {
-      const response = await fetch('https://nvr-travels.onrender.com/api/send-sms', {
+      const response = await fetch('http://localhost:3000/api/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, body }),
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Failed to send SMS');
-      console.log(`SMS sent to ${to}`);
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to send SMS');
+      }
+      console.log(`SMS sent to ${to}, Message SID: ${data.messageId}, Status: ${data.status}`);
       return true;
     } catch (err) {
       console.error('Error sending SMS:', err);
-      setError('Failed to send SMS. Please try again or contact support.');
+      let errorMessage = 'You are unable to book a ride at the moment. Please try again later.';
+      if (err instanceof Error) {
+        if (err.message.includes('network')) {
+          errorMessage = 'Network error: Unable to connect to the server. Please check your connection and try again.';
+        } else if (err.message.includes('CORS')) {
+          errorMessage = 'CORS error: Unable to reach the server. Please ensure the server is running on port 3000.';
+        } else {
+          errorMessage = `Failed to send booking confirmation: ${err.message}`;
+        }
+      }
+      setError(errorMessage);
       return false;
     }
   };
 
   const handleConfirmBooking = async () => {
-    if (!name || !phone) {
-      setError('Please enter both name and phone number.');
+    // Validate inputs
+    if (!name.trim()) {
+      setError('Please enter a valid name.');
+      return;
+    }
+    const formattedPhone = formatPhoneNumber(phone);
+    if (!formattedPhone) {
+      setError('Please enter a valid 10-digit Indian phone number starting with 6-9.');
       return;
     }
 
@@ -80,14 +103,11 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
     setShowModal(false);
     setError(null);
 
-    const formattedPhone = formatPhoneNumber(phone);
-    console.log('Formatted customer phone:', formattedPhone);
+    const nvrMessage = `Booking: ${name} (${formattedPhone}) - ${bookingDetails.tripType}, Pickup: ${truncate(bookingDetails.pickup, 15)}, ${bookingDetails.date} ${bookingDetails.time}, Car: ${bookingDetails.carType}, Fare: ₹${bookingDetails.totalFare}${bookingDetails.destination ? `, Dest: ${truncate(bookingDetails.destination, 15)}` : ''}`;
 
-    const nvrMessage = `Booking: ${name} (${formattedPhone})-${bookingDetails.tripType}, Pickup: ${truncate(bookingDetails.pickup, 15)}, ${bookingDetails.date} ${bookingDetails.time}, Car: ${bookingDetails.carType}, Fare: ₹${bookingDetails.totalFare}${bookingDetails.destination ? `, Dest: ${truncate(bookingDetails.destination, 15)}` : ''}`;
-
-    console.log('Attempting to send SMS to owner:', '+919381283038');
+    console.log('Sending SMS to owner:', OWNER_PHONE_NUMBER);
     console.log('SMS body:', nvrMessage);
-    const ownerSuccess = await sendSMS('+919381283038', nvrMessage);
+    const ownerSuccess = await sendSMS(OWNER_PHONE_NUMBER, nvrMessage);
     console.log('Owner SMS success status:', ownerSuccess);
 
     if (ownerSuccess) {
@@ -95,7 +115,7 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
       setShowSuccess(true);
     } else {
       console.log('SMS to owner failed, showing error');
-      setError('Failed to send SMS notification to the owner.');
+      setError('You are unable to book a ride at the moment. Please try again later.');
     }
 
     setIsLoading(false);
@@ -208,6 +228,7 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600"
+                  placeholder="Enter your name"
                   required
                 />
               </div>
@@ -218,6 +239,8 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600"
+                  placeholder="Enter 10-digit phone number"
+                  pattern="[6-9][0-9]{9}"
                   required
                 />
               </div>
@@ -232,7 +255,7 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
               </button>
               <button
                 onClick={handleConfirmBooking}
-                disabled={!name || !phone || isLoading}
+                disabled={!name.trim() || !phone || isLoading}
                 className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg hover:from-blue-700 hover:to-blue-900 transition disabled:opacity-50"
               >
                 Confirm Booking
@@ -250,7 +273,7 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
               Booking Confirmed!
             </h2>
             <p className="text-gray-700 text-center">
-              Thank you for booking a ride! Have a safe and happy journey. Our team will contact you soon about your ride.
+              Thank you for booking a ride! The booking details have been sent to NVR Travels. Our team will contact you soon to confirm your ride.
             </p>
             <div className="mt-6 flex justify-center">
               <button
@@ -258,6 +281,32 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
                 className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg hover:from-blue-700 hover:to-blue-900 transition"
               >
                 Book Another Ride
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {error && !showModal && !showSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold text-red-600 mb-4 text-center">
+              Booking Failed
+            </h2>
+            <p className="text-gray-700 text-center">{error}</p>
+            <div className="mt-6 flex justify-center gap-4">
+              <button
+                onClick={() => setError(null)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleBookRide}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg hover:from-blue-700 hover:to-blue-900 transition"
+              >
+                Try Again
               </button>
             </div>
           </div>
