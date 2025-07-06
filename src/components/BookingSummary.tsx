@@ -104,6 +104,18 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
     setError(null);
 
     const nvrMessage = `Booking: ${name} (${formattedPhone}) - ${bookingDetails.tripType}, Pickup: ${truncate(bookingDetails.pickup, 15)}, ${bookingDetails.date} ${bookingDetails.time}, Car: ${bookingDetails.carType}, Fare: ₹${bookingDetails.totalFare}${bookingDetails.destination ? `, Dest: ${truncate(bookingDetails.destination, 15)}` : ''}`;
+    // const nvrMessage = [
+    //   `New Booking:`,
+    //   `Name: ${name}`,
+    //   `Phone: ${formattedPhone}`,
+    //   `Trip: ${bookingDetails.tripType}`,
+    //   `Pickup: ${bookingDetails.pickup}`,
+    //   bookingDetails.destination ? `Destination: ${bookingDetails.destination}` : null,
+    //   `Date: ${bookingDetails.date}`,
+    //   `Time: ${bookingDetails.time}`,
+    //   `Car: ${bookingDetails.carType}`,
+    //   `Fare: ₹${bookingDetails.totalFare || 'TBD'}`,
+    // ].filter(line => line !== null).join('\n');
 
     console.log('Sending SMS to owner:', OWNER_PHONE_NUMBER);
     console.log('SMS body:', nvrMessage);
