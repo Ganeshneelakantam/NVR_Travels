@@ -37,6 +37,23 @@ app.post('/api/send-sms', async (req, res) => {
   }
 });
 
+// Endpoint to send WhatsApp message
+app.post('/api/send-whatsapp', async (req, res) => {
+  const { to, body } = req.body;
+
+  try {
+    const message = await client.messages.create({
+      body,
+      from: `whatsapp:${twilioPhoneNumber}`, // Use WhatsApp namespace
+      to: `whatsapp:${to}`, // Use WhatsApp namespace
+    });
+    res.json({ success: true, messageId: message.sid });
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    res.status(500).json({ success: false, error: (error instanceof Error ? error.message : 'Unknown error') });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
