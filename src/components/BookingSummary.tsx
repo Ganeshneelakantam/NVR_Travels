@@ -55,7 +55,7 @@ const BookingSummary = ({ bookingDetails }: BookingSummaryProps) => {
 
   const sendSMS = async (to: string, body: string): Promise<boolean> => {
     try {
-      const response = await fetch('http://localhost:3000/api/send-whatsapp', {
+      const response = await fetch('http://localhost:3000/api/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, body }),
