@@ -21,21 +21,21 @@ if (!accountSid || !authToken || !twilioPhoneNumber) {
 const client = twilio(accountSid, authToken);
 
 // Endpoint to send SMS
-// app.post('/api/send-sms', async (req, res) => {
-//   const { to, body } = req.body;
+app.post('/api/send-sms', async (req, res) => {
+  const { to, body } = req.body;
 
-//   try {
-//     const message = await client.messages.create({
-//       body,
-//       from: twilioPhoneNumber,
-//       to,
-//     });
-//     res.json({ success: true, messageId: message.sid });
-//   } catch (error) {
-//     console.error('Error sending SMS:', error);
-//     res.status(500).json({ success: false, error: (error instanceof Error ? error.message : 'Unknown error') });
-//   }
-// });
+  try {
+    const message = await client.messages.create({
+      body,
+      from: twilioPhoneNumber,
+      to,
+    });
+    res.json({ success: true, messageId: message.sid });
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    res.status(500).json({ success: false, error: (error instanceof Error ? error.message : 'Unknown error') });
+  }
+});
 
 // Endpoint to send WhatsApp message
 app.post('/api/send-whatsapp', async (req, res) => {
